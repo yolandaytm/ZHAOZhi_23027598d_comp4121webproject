@@ -14,18 +14,46 @@ function getDefaultCustomization(item) {
   return { singleChoice, multiChoice, notes: '' };
 }
 
-export default function CustomizationModal({ item, inventoryMap, onClose, onAdd }) {
-  const [customization, setCustomization] = useState(() => getDefaultCustomization(item));
+function mergeCustomization(item, initialCustomization) {
+  const base = getDefaultCustomization(item);
+  if (!initialCustomization) return base;
+  return {
+    singleChoice: { ...base.singleChoice, ...(initialCustomization.singleChoice || {}) },
+    multiChoice: { ...base.multiChoice, ...(initialCustomization.multiChoice || {}) },
+    notes: initialCustomization.notes || '',
+  };
+}
+
+export default function CustomizationModal({
+  item,
+  inventoryMap,
+  onClose,
+  onAdd,
+  initialCustomization,
+  onSavePreset,
+  canSavePreset,
+}) {
+  const [customization, setCustomization] = useState(() => mergeCustomization(item, initialCustomization));
   const [quantity, setQuantity] = useState(1);
+  const [presetTitle, setPresetTitle] = useState('');
+  const [goalTag, setGoalTag] = useState('');
+  const [sharePreset, setSharePreset] = useState(true);
+  const [presetMessage, setPresetMessage] = useState('');
+  const [savingPreset, setSavingPreset] = useState(false);
 
   useEffect(() => {
-    setCustomization(getDefaultCustomization(item));
+    setCustomization(mergeCustomization(item, initialCustomization));
     setQuantity(1);
-  }, [item]);
+    setPresetTitle(item?.name === 'Build Your Own Bowl' ? 'My custom bowl' : `${item?.name || 'Meal'} preset`);
+    setGoalTag('');
+    setSharePreset(true);
+    setPresetMessage('');
+  }, [item, initialCustomization]);
 
   const schema = item?.customization_schema || item?.customizationSchema || {};
   const estimatedUnit = useMemo(() => (item ? estimateLinePrice(item, customization) : 0), [item, customization]);
   const estimatedTotal = estimatedUnit * quantity;
+  const isBuilder = item?.slug === 'build-your-own-bowl' || item?.id === 'build-your-own-bowl';
 
   if (!item) return null;
 
@@ -42,6 +70,28 @@ export default function CustomizationModal({ item, inventoryMap, onClose, onAdd 
         },
       };
     });
+  }
+
+  async function handleSavePreset() {
+    if (!onSavePreset) return;
+    setSavingPreset(true);
+    setPresetMessage('');
+    try {
+      await onSavePreset({
+        menuItemId: item.id,
+        menuItemSlug: item.slug || item.id,
+        title: presetTitle.trim() || 'My custom bowl',
+        goalTag,
+        customization,
+        estimatedPrice: estimatedUnit,
+        isPublic: sharePreset,
+      });
+      setPresetMessage('Saved. You can reuse this meal from profile or community presets.');
+    } catch (error) {
+      setPresetMessage(error.message || 'Could not save preset.');
+    } finally {
+      setSavingPreset(false);
+    }
   }
 
   return (
@@ -119,6 +169,43 @@ export default function CustomizationModal({ item, inventoryMap, onClose, onAdd 
               placeholder="No onion, extra sauce, pack cutlery separately..."
             />
           </section>
+
+          {isBuilder && canSavePreset && (
+            <section className="option-group preset-save-box">
+              <div className="compact-row compact-row--top">
+                <div>
+                  <h4>Save this custom meal</h4>
+                  <p className="muted small-text">Useful for repeat orders and for showing custom meals on the homepage.</p>
+                </div>
+              </div>
+              <div className="checkout-grid">
+                <label>
+                  <span>Preset name</span>
+                  <input value={presetTitle} onChange={(event) => setPresetTitle(event.target.value)} placeholder="My high-protein bowl" />
+                </label>
+                <label>
+                  <span>Goal tag</span>
+                  <select value={goalTag} onChange={(event) => setGoalTag(event.target.value)}>
+                    <option value="">No tag</option>
+                    <option value="High protein">High protein</option>
+                    <option value="Budget meal">Budget meal</option>
+                    <option value="Light meal">Light meal</option>
+                    <option value="Comfort food">Comfort food</option>
+                  </select>
+                </label>
+              </div>
+              <label className="checkbox-row">
+                <input type="checkbox" checked={sharePreset} onChange={(event) => setSharePreset(event.target.checked)} />
+                <span>Share this meal in community custom meals</span>
+              </label>
+              <div className="preset-save-box__actions">
+                <button type="button" className="ghost-btn" onClick={handleSavePreset} disabled={savingPreset}>
+                  {savingPreset ? 'Saving...' : 'Save preset'}
+                </button>
+                {presetMessage && <span className="muted small-text">{presetMessage}</span>}
+              </div>
+            </section>
+          )}
 
           <section className="option-group compact-row">
             <div>

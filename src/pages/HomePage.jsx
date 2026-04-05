@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import MenuCard from '../components/MenuCard.jsx';
 import AiMealHelper from '../components/AiMealHelper.jsx';
+import CommunityPresetCard from '../components/CommunityPresetCard.jsx';
+import { apiRequest } from '../lib/api.js';
 
 const mealTimeOptions = [
   { id: 'all', label: 'All day', time: 'Full menu', emoji: '🍽️' },
@@ -27,28 +29,36 @@ function detectDefaultMealTime() {
   return 'all';
 }
 
-export default function HomePage({ menuItems, onCustomize }) {
+export default function HomePage({ menuItems, inventoryFlags, onCustomize }) {
   const [category, setCategory] = useState('All');
   const [search, setSearch] = useState('');
   const [mealTime, setMealTime] = useState(detectDefaultMealTime());
   const [aiOpen, setAiOpen] = useState(false);
+  const [communityPresets, setCommunityPresets] = useState([]);
 
-  const builderItem = useMemo(
-    () => menuItems.find((item) => (item.id || item.slug) === 'build-your-own-bowl' || item.category === 'Signature Builder') || null,
-    [menuItems]
-  );
-
-  const regularItems = useMemo(
-    () => menuItems.filter((item) => (item.id || item.slug) !== 'build-your-own-bowl' && item.category !== 'Signature Builder'),
-    [menuItems]
-  );
-
-  const categories = useMemo(() => ['All', ...new Set(regularItems.map((item) => item.category).filter(Boolean))], [regularItems]);
+  const categories = useMemo(() => ['All', ...new Set(menuItems.map((item) => item.category).filter(Boolean))], [menuItems]);
   const availableCategories = mealTimeCategories[mealTime];
+  const builderItem = useMemo(() => menuItems.find((item) => item.slug === 'build-your-own-bowl' || item.id === 'build-your-own-bowl'), [menuItems]);
 
-  const filteredRegularItems = useMemo(
+  useEffect(() => {
+    let ignore = false;
+    async function loadPresets() {
+      try {
+        const data = await apiRequest('/api/presets');
+        if (!ignore) setCommunityPresets(data.presets || []);
+      } catch {
+        if (!ignore) setCommunityPresets([]);
+      }
+    }
+    loadPresets();
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const filtered = useMemo(
     () =>
-      regularItems.filter((item) => {
+      menuItems.filter((item) => {
         const categoryName = item.category || '';
         const matchCategory = category === 'All' || categoryName === category;
         const matchMealTime = !availableCategories || availableCategories.has(categoryName);
@@ -56,14 +66,12 @@ export default function HomePage({ menuItems, onCustomize }) {
         const matchSearch = keyword.includes(search.toLowerCase());
         return matchCategory && matchSearch && matchMealTime;
       }),
-    [regularItems, category, search, availableCategories]
+    [menuItems, category, search, availableCategories]
   );
 
-  const showBuilder = Boolean(
-    builderItem &&
-      (mealTime === 'all' || mealTime === 'lunch' || mealTime === 'dinner') &&
-      (`${builderItem.name} ${builderItem.description || ''}`.toLowerCase().includes(search.toLowerCase()))
-  );
+  const builderVisible = filtered.find((item) => item.id === builderItem?.id);
+  const regularItems = filtered.filter((item) => item.id !== builderItem?.id);
+  const unavailableCount = (inventoryFlags || []).filter((flag) => flag.is_available === false).length;
 
   return (
     <div className="page-shell shell desktop-home">
@@ -76,13 +84,13 @@ export default function HomePage({ menuItems, onCustomize }) {
               <div className="muted">家常風味</div>
             </div>
           </div>
-          <h1>Regular dishes when you want speed. Build-your-own when you want more control.</h1>
+          <h1>Choose a dish, customize it, and order online.</h1>
           <p className="muted hero-panel__copy">
-            Start with a standard meal or customize your own bowl with different bases, proteins, sauces, sides, and notes.
+            Browse the menu, adjust ingredients when needed, and track your order in one place.
           </p>
 
           <div className="hero-search-row">
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search dishes or ingredients" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search dishes" />
             <select value={category} onChange={(event) => setCategory(event.target.value)}>
               {categories.map((entry) => (
                 <option key={entry} value={entry}>{entry}</option>
@@ -94,9 +102,9 @@ export default function HomePage({ menuItems, onCustomize }) {
             <div className="meal-presets-card__header">
               <div>
                 <h3>Order time</h3>
-                <p className="muted small-text">Use this to filter dishes for breakfast, lunch, dinner, or supper.</p>
+                <p className="muted small-text">Use the time filter to narrow down relevant dishes.</p>
               </div>
-              <button type="button" className="ghost-btn" onClick={() => setAiOpen(true)}>Need a quick suggestion?</button>
+              <button type="button" className="ghost-btn" onClick={() => setAiOpen(true)}>Ask AI for a suggestion</button>
             </div>
             <div className="meal-presets-grid meal-presets-grid--five">
               {mealTimeOptions.map((meal) => (
@@ -113,49 +121,77 @@ export default function HomePage({ menuItems, onCustomize }) {
               ))}
             </div>
           </div>
+
+          <div className="hero-summary-row">
+            <div className="hero-summary-pill"><strong>{filtered.length}</strong><span>matching dishes</span></div>
+            {unavailableCount > 0 && <div className="hero-summary-pill"><strong>{unavailableCount}</strong><span>temporarily unavailable options</span></div>}
+          </div>
         </article>
       </section>
 
-      {showBuilder && (
-        <section className="menu-section-web">
+      {builderVisible && (
+        <section className="builder-feature-section">
           <div className="section-heading section-heading--tight">
             <div>
               <p className="eyebrow">Custom meal</p>
-              <h2>Build your own bowl</h2>
-              <p className="muted small-text">Choose base, protein, sauce, spice, extras, and special notes in one order flow.</p>
+              <h2>Build your own meal</h2>
+              <p className="muted small-text">This is the clearest part of the business model. Users do not need to order only fixed sets.</p>
             </div>
           </div>
-          <div className="builder-feature-grid">
-            <div className="builder-feature-copy card card--nested">
-              <h3>{builderItem.name}</h3>
-              <p className="muted">{builderItem.description}</p>
-              <ul className="feature-list">
+          <div className="builder-feature-layout">
+            <div className="card builder-feature-copy">
+              <h3>Build Your Own Bowl</h3>
+              <p className="muted">Choose base, protein, sauce, spice, extras, and kitchen notes in one flow.</p>
+              <ul className="feature-list-web">
                 <li>Mix your own combination instead of ordering a fixed set.</li>
                 <li>Adjust ingredients and extras to fit your taste or budget.</li>
-                <li>Leave notes for the kitchen in the same flow.</li>
+                <li>Save the meal as a preset and reuse it later.</li>
               </ul>
-              <button type="button" className="primary-btn" onClick={() => onCustomize(builderItem)}>Build your meal</button>
+              <button type="button" className="primary-btn" onClick={() => onCustomize(builderVisible)}>Build your meal</button>
             </div>
-            <MenuCard item={builderItem} onCustomize={onCustomize} />
+            <MenuCard item={builderVisible} onCustomize={onCustomize} />
           </div>
         </section>
       )}
+
+      <section className="community-section-web">
+        <div className="section-heading section-heading--tight">
+          <div>
+            <p className="eyebrow">Community custom meals</p>
+            <h2>Reusable bowls built by users</h2>
+            <p className="muted small-text">This makes customization more visible and helps repeat use instead of starting from zero each time.</p>
+          </div>
+        </div>
+        {communityPresets.length ? (
+          <div className="community-grid-web">
+            {communityPresets.map((preset) => (
+              <CommunityPresetCard
+                key={preset.id}
+                preset={preset}
+                onUse={(chosenPreset) => builderItem && onCustomize(builderItem, chosenPreset.customization)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="card empty-box">No community meals yet. Save a custom bowl to make this section useful.</div>
+        )}
+      </section>
 
       <section className="menu-section-web">
         <div className="section-heading section-heading--tight">
           <div>
             <p className="eyebrow">Regular menu</p>
-            <h2>{category === 'All' ? 'Regular dishes' : category}</h2>
+            <h2>{category === 'All' ? 'Available dishes' : category}</h2>
             <p className="muted small-text">
-              These are standard dishes for quick ordering. Use customize on each card if you want small adjustments.
+              {mealTime === 'all' ? 'Showing the full menu.' : `Showing dishes suitable for ${mealTime}.`}
             </p>
           </div>
         </div>
-        {!filteredRegularItems.length ? (
+        {!regularItems.length ? (
           <div className="card empty-box">No regular dishes match your search or selected time.</div>
         ) : (
           <div className="menu-grid-desktop">
-            {filteredRegularItems.map((item) => (
+            {regularItems.map((item) => (
               <MenuCard key={item.id || item.slug} item={item} onCustomize={onCustomize} />
             ))}
           </div>

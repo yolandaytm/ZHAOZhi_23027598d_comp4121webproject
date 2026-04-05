@@ -18,8 +18,10 @@ export default function App() {
   const [menuItems, setMenuItems] = useState([]);
   const [inventoryFlags, setInventoryFlags] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [savedPresets, setSavedPresets] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [activeItem, setActiveItem] = useState(null);
+  const [activeCustomization, setActiveCustomization] = useState(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [cartItems, setCartItems] = useState(() => {
     try {
@@ -44,8 +46,13 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (user) fetchOrders();
-    else setOrders([]);
+    if (user) {
+      fetchOrders();
+      fetchSavedPresets();
+    } else {
+      setOrders([]);
+      setSavedPresets([]);
+    }
   }, [user?.id]);
 
   useEffect(() => {
@@ -76,6 +83,20 @@ export default function App() {
     }
   }
 
+  async function fetchSavedPresets() {
+    try {
+      const data = await apiRequest('/api/presets?scope=mine');
+      setSavedPresets(data.presets || []);
+    } catch {
+      setSavedPresets([]);
+    }
+  }
+
+  function handleOpenCustomize(item, presetCustomization = null) {
+    setActiveItem(item);
+    setActiveCustomization(presetCustomization || null);
+  }
+
   function addToCart(customization, quantity) {
     if (!activeItem) return;
     const unitPrice = estimateLinePrice(activeItem, customization);
@@ -94,6 +115,7 @@ export default function App() {
       },
     ]);
     setActiveItem(null);
+    setActiveCustomization(null);
     setCartOpen(true);
     setToast('Added to cart');
   }
@@ -123,6 +145,13 @@ export default function App() {
     } catch (error) {
       setToast(error.message);
     }
+  }
+
+  async function handleSavePreset(payload) {
+    const data = await apiRequest('/api/presets', { method: 'POST', body: payload });
+    await fetchSavedPresets();
+    setToast('Meal preset saved');
+    return data.preset;
   }
 
   async function handleToggleInventory(ingredientCode, isAvailable) {
@@ -189,10 +218,15 @@ export default function App() {
       {authLoading && <div className="shell"><div className="card empty-box">Loading session...</div></div>}
       {!authLoading && (
         <Routes>
-          <Route path="/" element={<HomePage menuItems={menuItems} inventoryFlags={inventoryFlags} onCustomize={setActiveItem} />} />
+          <Route path="/" element={<HomePage menuItems={menuItems} inventoryFlags={inventoryFlags} onCustomize={handleOpenCustomize} />} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/orders" element={<OrdersPage orders={orders} loading={loadingOrders} onRefresh={fetchOrders} />} />
-          <Route path="/profile" element={<ProfilePage orders={orders} />} />
+          <Route path="/profile" element={<ProfilePage orders={orders} savedPresets={savedPresets} onUsePreset={(preset) => {
+            const builderItem = menuItems.find((item) => item.slug === 'build-your-own-bowl' || item.id === 'build-your-own-bowl');
+            if (!builderItem) return;
+            navigate('/');
+            handleOpenCustomize(builderItem, preset.customization);
+          }} />} />
           <Route
             path="/admin"
             element={
@@ -212,7 +246,18 @@ export default function App() {
         </Routes>
       )}
 
-      <CustomizationModal item={activeItem} inventoryMap={inventoryMap} onClose={() => setActiveItem(null)} onAdd={addToCart} />
+      <CustomizationModal
+        item={activeItem}
+        inventoryMap={inventoryMap}
+        initialCustomization={activeCustomization}
+        canSavePreset={Boolean(user)}
+        onSavePreset={handleSavePreset}
+        onClose={() => {
+          setActiveItem(null);
+          setActiveCustomization(null);
+        }}
+        onAdd={addToCart}
+      />
       <CartPanel
         open={cartOpen}
         cartItems={cartItems}

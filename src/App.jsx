@@ -9,6 +9,7 @@ import OrdersPage from './pages/OrdersPage.jsx';
 import AdminPage from './pages/AdminPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
+import MerchantLoginPage from './pages/MerchantLoginPage.jsx';
 import { apiRequest } from './lib/api.js';
 import { useAuth } from './context/AuthContext.jsx';
 import { estimateLinePrice } from './lib/pricing.js';
@@ -151,7 +152,7 @@ export default function App() {
   async function handleSavePreset(payload) {
     const data = await apiRequest('/api/presets', { method: 'POST', body: payload });
     await fetchSavedPresets();
-    setToast('Meal preset saved');
+    setToast('Meal saved');
     return data.preset;
   }
 
@@ -177,7 +178,7 @@ export default function App() {
       await fetchOrders();
       const adminOrders = await apiRequest('/api/admin-orders');
       setOrders(adminOrders.orders || []);
-      setToast('Order status updated');
+      setToast('Order updated');
     } catch (error) {
       setToast(error.message);
     }
@@ -197,8 +198,8 @@ export default function App() {
       await apiRequest('/api/admin-bootstrap', { method: 'POST', body: { secret } });
       await refreshProfile();
       await fetchAdminOrders();
-      setToast('This account is now admin');
-      return 'This account is now admin. Refresh complete.';
+      setToast('Restaurant access is ready');
+      return 'Restaurant access is ready.';
     } catch (error) {
       setToast(error.message);
       return error.message;
@@ -216,19 +217,20 @@ export default function App() {
   return (
     <>
       <Header cartCount={cartCount} onOpenCart={() => setCartOpen(true)} />
-      {authLoading && <div className="shell"><div className="card empty-box">Loading session...</div></div>}
+      {authLoading && <div className="shell"><div className="card empty-box">Loading…</div></div>}
       {!authLoading && (
         <Routes>
           <Route path="/" element={<HomePage menuItems={menuItems} inventoryFlags={inventoryFlags} onCustomize={handleOpenCustomize} />} />
           <Route path="/auth" element={<AuthPage />} />
+          <Route path="/merchant-login" element={<MerchantLoginPage />} />
           <Route path="/orders" element={<OrdersPage orders={orders} loading={loadingOrders} onRefresh={fetchOrders} />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="/profile" element={<ProfilePage orders={orders} savedPresets={savedPresets} onUsePreset={(preset) => {
             const builderItem = menuItems.find((item) => item.slug === 'build-your-own-bowl' || item.id === 'build-your-own-bowl');
             if (!builderItem) return;
             navigate('/');
             handleOpenCustomize(builderItem, preset.customization);
           }} />} />
-          <Route path="/settings" element={<SettingsPage />} />
           <Route
             path="/admin"
             element={

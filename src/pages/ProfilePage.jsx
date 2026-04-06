@@ -1,24 +1,36 @@
-import { Link, Navigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { formatCurrency } from '../lib/pricing.js';
 
-export default function ProfilePage({ orders, savedPresets = [], onUsePreset }) {
+const SETTINGS_KEY = 'dishy-settings-draft';
+
+function readSettings() {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    return JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null');
+  } catch {
+    return null;
+  }
+}
+
+function SoonTag() {
+  return <span className="soon-tag">Available soon</span>;
+}
+
+export default function ProfilePage({ orders, savedPresets, onUsePreset }) {
   const { user, signOut } = useAuth();
-
-  if (!user) return <Navigate to="/auth" replace />;
-
+  const settings = readSettings() || {};
   const completedOrders = (orders || []).filter((o) => o.status === 'delivered').length;
   const totalSpent = (orders || [])
     .filter((o) => o.status === 'delivered')
     .reduce((sum, order) => sum + Number(order.total || 0), 0);
-  const lastOrder = (orders || [])[0];
-  const lastType = lastOrder?.order_type ? String(lastOrder.order_type).replace(/_/g, ' ') : 'No orders yet';
+  const officeLunchOrders = (orders || []).filter((o) => o.order_type === 'delivery').length;
 
-  const quickItems = [
+  const summaryItems = [
     { icon: '🍱', label: 'Saved meals', value: `${savedPresets.length}` },
     { icon: '⭐', label: 'Coins', value: `${user.loyaltyCoins || 0}` },
     { icon: '📦', label: 'Delivered', value: `${completedOrders}` },
-    { icon: '🕒', label: 'Last order type', value: lastType },
+    { icon: '🏢', label: 'Office delivery', value: `${officeLunchOrders}` },
   ];
 
   return (
@@ -66,6 +78,38 @@ export default function ProfilePage({ orders, savedPresets = [], onUsePreset }) 
           </div>
         </section>
 
+        <section className="card card--nested profile-health-card">
+          <div className="section-heading section-heading--tight">
+            <div>
+              <p className="eyebrow">Health management</p>
+              <h2>Your meal targets</h2>
+            </div>
+            <Link className="ghost-btn" to="/settings">Edit</Link>
+          </div>
+          <div className="profile-health-grid">
+            <div className="profile-health-tile">
+              <strong>{settings.mainGoal || 'Balanced'}</strong>
+              <span>Goal</span>
+            </div>
+            <div className="profile-health-tile">
+              <strong>{settings.targetCalories || '650'} kcal</strong>
+              <span>Target / meal</span>
+            </div>
+            <div className="profile-health-tile">
+              <strong>{settings.targetProtein || '30'} g</strong>
+              <span>Protein / meal</span>
+            </div>
+            <div className="profile-health-tile">
+              <strong>{settings.destination || 'Office'}</strong>
+              <span>Default destination</span>
+            </div>
+          </div>
+          <div className="profile-health-notes muted small-text">
+            <div><strong>Avoid:</strong> {settings.avoidIngredients || 'None set'}</div>
+            <div><strong>Allergies:</strong> {settings.allergies || 'None set'}</div>
+          </div>
+        </section>
+
         <section className="card card--nested">
           <div className="section-heading section-heading--tight">
             <div>
@@ -95,22 +139,22 @@ export default function ProfilePage({ orders, savedPresets = [], onUsePreset }) 
         <section className="card">
           <p className="eyebrow">Account</p>
           <div className="menu-list-web">
-            {quickItems.map((item) => (
+            {summaryItems.map((item) => (
               <div className="menu-line-web" key={item.label}>
                 <div><span>{item.icon}</span><strong>{item.label}</strong></div>
                 <span className="muted small-text">{item.value}</span>
               </div>
             ))}
-            <Link className="menu-line-web menu-line-web--link" to="/settings"><div><span>⚙️</span><strong>Settings</strong></div><span className="muted small-text">Security · health · support</span></Link>
-            <div className="menu-line-web"><div><span>🔐</span><strong>Change password</strong></div><span className="muted small-text">Planned</span></div>
-            <div className="menu-line-web"><div><span>🛡️</span><strong>MFA</strong></div><span className="muted small-text">Planned</span></div>
-            <div className="menu-line-web"><div><span>💬</span><strong>Contact us</strong></div><span className="muted small-text">Planned</span></div>
           </div>
         </section>
 
         <section className="card quick-links-card">
           <Link className="ghost-btn quick-link-btn" to="/orders">View orders</Link>
-          <Link className="ghost-btn quick-link-btn" to="/settings">Open settings</Link>
+          <Link className="ghost-btn quick-link-btn" to="/settings">Settings</Link>
+          <div className="soon-row"><span>Change password</span><SoonTag /></div>
+          <div className="soon-row"><span>MFA</span><SoonTag /></div>
+          <div className="soon-row"><span>Contact us</span><SoonTag /></div>
+          <div className="soon-row"><span>Merchant support</span><SoonTag /></div>
           {user.role === 'admin' && <Link className="ghost-btn quick-link-btn" to="/admin">Restaurant dashboard</Link>}
           <button className="primary-btn quick-link-btn" onClick={signOut}>Sign out</button>
         </section>

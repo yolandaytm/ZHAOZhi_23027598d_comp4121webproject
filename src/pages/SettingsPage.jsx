@@ -1,247 +1,196 @@
 import { useEffect, useState } from 'react';
-import { Navigate, Link } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 
-const defaultDraft = {
-  defaultDestination: 'Office',
+export const STORAGE_KEY = 'dishy-settings-draft';
+
+const defaultState = {
+  destination: 'Office',
   building: '',
   floor: '',
-  deskNote: '',
   lunchReminder: true,
-  defaultSlot: 'ASAP',
-  goal: 'Balanced',
-  calorieTarget: '650',
-  proteinTarget: '35',
-  allergies: '',
+  mainGoal: 'Balanced',
+  targetCalories: '650',
+  targetProtein: '30',
   avoidIngredients: '',
+  allergies: '',
+  lowSugar: false,
+  lowSodium: false,
+  noFried: false,
+  favouriteKitchen: 'HK Home Dishes',
   supportChannel: 'Email',
-  supportEmail: '',
-  supportPhone: '',
-  savedKitchens: 'HK Home Dishes, Fit Bowl Lab',
-  teamLunch: false,
-  receiptNeeded: false,
-  contactlessDropoff: false,
-  mfaPlanned: true,
 };
 
-function SectionHeader({ eyebrow, title, note }) {
+function SoonCard({ title, detail }) {
   return (
-    <div className="section-heading section-heading--tight settings-section-heading">
-      <div>
-        <p className="eyebrow">{eyebrow}</p>
-        <h2>{title}</h2>
-        {note && <p className="muted small-text">{note}</p>}
-      </div>
-    </div>
-  );
-}
-
-function SecurityTile({ title, detail, action }) {
-  return (
-    <div className="settings-tile">
+    <div className="settings-panel settings-panel--soon">
       <div>
         <strong>{title}</strong>
         <div className="muted small-text">{detail}</div>
       </div>
-      <button type="button" className="ghost-btn" disabled>{action}</button>
+      <span className="soon-tag">Available soon</span>
     </div>
   );
 }
 
 export default function SettingsPage() {
   const { user } = useAuth();
-  const [draft, setDraft] = useState(defaultDraft);
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState('');
+  const [form, setForm] = useState(defaultState);
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('dishy-settings-draft');
-      if (raw) setDraft((current) => ({ ...current, ...JSON.parse(raw) }));
-    } catch {
-      // ignore broken local draft
-    }
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) setForm({ ...defaultState, ...JSON.parse(raw) });
+    } catch {}
   }, []);
-
-  function patch(name, value) {
-    setSaved(false);
-    setDraft((current) => ({ ...current, [name]: value }));
-  }
-
-  function saveDraft() {
-    localStorage.setItem('dishy-settings-draft', JSON.stringify(draft));
-    setSaved(true);
-  }
 
   if (!user) return <Navigate to="/auth" replace />;
 
+  function updateField(key, value) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function handleSave() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(form));
+    setSaved('Saved on this device.');
+    setTimeout(() => setSaved(''), 2500);
+  }
+
   return (
-    <div className="page-shell shell settings-layout-web">
-      <section className="card settings-main-card stack-list">
-        <div className="settings-page-top">
+    <div className="page-shell shell settings-layout">
+      <section className="card settings-main">
+        <div className="section-heading section-heading--tight">
           <div>
-            <p className="eyebrow">Account</p>
-            <h1>Settings</h1>
-            <p className="muted">Keep your workday ordering, health goals, and support details in one place.</p>
-          </div>
-          <div className="settings-page-actions">
-            <button type="button" className="ghost-btn" onClick={saveDraft}>Save draft</button>
-            {saved && <span className="muted small-text">Saved locally</span>}
+            <p className="eyebrow">Settings</p>
+            <h1>Account, delivery, and health preferences</h1>
           </div>
         </div>
 
-        <section className="card card--nested">
-          <SectionHeader eyebrow="Security" title="Sign-in and protection" note="UI ready. API can be added later." />
-          <div className="settings-grid-two">
-            <SecurityTile title="Change password" detail="Use email + password today. Password update endpoint can be wired later." action="Planned" />
-            <SecurityTile title="MFA" detail="Reserve a spot for authenticator / SMS setup when you are ready." action="Planned" />
-            <SecurityTile title="Trusted devices" detail="Show active sessions and allow sign-out from other devices later." action="Planned" />
-            <SecurityTile title="Login alerts" detail="Email alerts for new device sign-ins can be added later." action="Planned" />
+        <div className="settings-section">
+          <h3>Security</h3>
+          <div className="settings-grid">
+            <SoonCard title="Change password" detail="Update your sign-in password." />
+            <SoonCard title="MFA" detail="Add another layer of sign-in security." />
+            <SoonCard title="Trusted devices" detail="Review devices used on your account." />
+            <SoonCard title="Login alerts" detail="Get notified about unusual sign-ins." />
           </div>
-        </section>
+        </div>
 
-        <section className="card card--nested">
-          <SectionHeader eyebrow="Workday" title="Delivery and office setup" note="Useful for office lunch and repeat ordering." />
-          <div className="settings-grid-two">
+        <div className="settings-section">
+          <h3>Delivery preferences</h3>
+          <div className="checkout-grid">
             <label>
               <span>Default destination</span>
-              <select value={draft.defaultDestination} onChange={(e) => patch('defaultDestination', e.target.value)}>
+              <select value={form.destination} onChange={(event) => updateField('destination', event.target.value)}>
                 <option>Office</option>
                 <option>Home</option>
                 <option>Gym</option>
               </select>
             </label>
             <label>
-              <span>Default slot</span>
-              <select value={draft.defaultSlot} onChange={(e) => patch('defaultSlot', e.target.value)}>
-                <option>ASAP</option>
-                <option>11:30 - 12:00</option>
-                <option>12:00 - 12:30</option>
-                <option>12:30 - 13:00</option>
+              <span>Building or company</span>
+              <input value={form.building} onChange={(event) => updateField('building', event.target.value)} placeholder="Central Plaza" />
+            </label>
+            <label>
+              <span>Floor or desk note</span>
+              <input value={form.floor} onChange={(event) => updateField('floor', event.target.value)} placeholder="12/F reception" />
+            </label>
+            <label>
+              <span>Favourite kitchen</span>
+              <select value={form.favouriteKitchen} onChange={(event) => updateField('favouriteKitchen', event.target.value)}>
+                <option>HK Home Dishes</option>
+                <option>Morning Kitchen</option>
+                <option>Central Noodle House</option>
+                <option>Fit Bowl Lab</option>
               </select>
             </label>
-            <label>
-              <span>Company / building</span>
-              <input value={draft.building} onChange={(e) => patch('building', e.target.value)} placeholder="Office Tower / Company" />
-            </label>
-            <label>
-              <span>Floor / desk note</span>
-              <input value={draft.floor} onChange={(e) => patch('floor', e.target.value)} placeholder="22/F or reception note" />
-            </label>
-            <label className="settings-full-width">
-              <span>Drop-off note</span>
-              <input value={draft.deskNote} onChange={(e) => patch('deskNote', e.target.value)} placeholder="Call on arrival / leave at reception" />
-            </label>
-            <label className="checkbox-row settings-full-width">
-              <input type="checkbox" checked={draft.lunchReminder} onChange={(e) => patch('lunchReminder', e.target.checked)} />
+            <label className="switch-row switch-row--boxed">
+              <input type="checkbox" checked={form.lunchReminder} onChange={(event) => updateField('lunchReminder', event.target.checked)} />
               <span>Lunch reminder</span>
             </label>
           </div>
-        </section>
+        </div>
 
-        <section className="card card--nested">
-          <SectionHeader eyebrow="Health" title="Meal targets" note="Keep goals visible when you build or reorder meals." />
-          <div className="settings-grid-two">
+        <div className="settings-section">
+          <h3>Health management</h3>
+          <div className="checkout-grid">
             <label>
               <span>Main goal</span>
-              <select value={draft.goal} onChange={(e) => patch('goal', e.target.value)}>
+              <select value={form.mainGoal} onChange={(event) => updateField('mainGoal', event.target.value)}>
                 <option>Balanced</option>
                 <option>High protein</option>
                 <option>Lighter meals</option>
-                <option>Low carb</option>
                 <option>Office lunch</option>
+                <option>Comfort</option>
               </select>
             </label>
             <label>
               <span>Target kcal / meal</span>
-              <input value={draft.calorieTarget} onChange={(e) => patch('calorieTarget', e.target.value)} placeholder="650" />
+              <input value={form.targetCalories} onChange={(event) => updateField('targetCalories', event.target.value)} placeholder="650" />
             </label>
             <label>
-              <span>Target protein / meal (g)</span>
-              <input value={draft.proteinTarget} onChange={(e) => patch('proteinTarget', e.target.value)} placeholder="35" />
+              <span>Target protein / meal</span>
+              <input value={form.targetProtein} onChange={(event) => updateField('targetProtein', event.target.value)} placeholder="30" />
             </label>
             <label>
               <span>Avoid ingredients</span>
-              <input value={draft.avoidIngredients} onChange={(e) => patch('avoidIngredients', e.target.value)} placeholder="Mushroom, onion" />
+              <input value={form.avoidIngredients} onChange={(event) => updateField('avoidIngredients', event.target.value)} placeholder="Onion, coriander" />
             </label>
-            <label className="settings-full-width">
-              <span>Allergies / strict rules</span>
-              <textarea className="textarea" rows="3" value={draft.allergies} onChange={(e) => patch('allergies', e.target.value)} placeholder="Nut allergy, no shellfish..." />
+            <label style={{ gridColumn: '1 / -1' }}>
+              <span>Allergies or strict rules</span>
+              <textarea className="textarea" rows="3" value={form.allergies} onChange={(event) => updateField('allergies', event.target.value)} placeholder="Shellfish allergy, no peanuts" />
+            </label>
+            <label className="switch-row switch-row--boxed">
+              <input type="checkbox" checked={form.lowSugar} onChange={(event) => updateField('lowSugar', event.target.checked)} />
+              <span>Prefer lower sugar</span>
+            </label>
+            <label className="switch-row switch-row--boxed">
+              <input type="checkbox" checked={form.lowSodium} onChange={(event) => updateField('lowSodium', event.target.checked)} />
+              <span>Prefer lower sodium</span>
+            </label>
+            <label className="switch-row switch-row--boxed">
+              <input type="checkbox" checked={form.noFried} onChange={(event) => updateField('noFried', event.target.checked)} />
+              <span>Reduce fried items</span>
             </label>
           </div>
-        </section>
+        </div>
 
-        <section className="card card--nested">
-          <SectionHeader eyebrow="Support" title="Contact and help" note="Front-end ready. API placeholder routes included." />
-          <div className="settings-grid-two">
+        <div className="settings-section">
+          <h3>Support</h3>
+          <div className="checkout-grid">
             <label>
-              <span>Preferred channel</span>
-              <select value={draft.supportChannel} onChange={(e) => patch('supportChannel', e.target.value)}>
+              <span>Preferred support channel</span>
+              <select value={form.supportChannel} onChange={(event) => updateField('supportChannel', event.target.value)}>
                 <option>Email</option>
                 <option>Phone</option>
-                <option>WhatsApp</option>
+                <option>In-app message</option>
               </select>
             </label>
-            <label>
-              <span>Support email</span>
-              <input value={draft.supportEmail} onChange={(e) => patch('supportEmail', e.target.value)} placeholder="you@example.com" />
-            </label>
-            <label>
-              <span>Support phone</span>
-              <input value={draft.supportPhone} onChange={(e) => patch('supportPhone', e.target.value)} placeholder="Optional" />
-            </label>
-            <div className="settings-tile settings-tile--action">
-              <div>
-                <strong>Contact us</strong>
-                <div className="muted small-text">Reserve a clear spot for order issues and support requests.</div>
-              </div>
-              <button type="button" className="ghost-btn" disabled>Planned</button>
-            </div>
           </div>
-        </section>
+          <div className="settings-grid" style={{ marginTop: 12 }}>
+            <SoonCard title="Contact us" detail="General customer support." />
+            <SoonCard title="Order issue help" detail="Late, missing, or wrong order support." />
+            <SoonCard title="Refund support" detail="Support for refund requests." />
+            <SoonCard title="Merchant contact" detail="Talk to the restaurant team." />
+          </div>
+        </div>
 
-        <section className="card card--nested">
-          <SectionHeader eyebrow="Ordering" title="Advanced tools" note="Useful placeholders for later work." />
-          <div className="settings-grid-two">
-            <label>
-              <span>Saved kitchens</span>
-              <input value={draft.savedKitchens} onChange={(e) => patch('savedKitchens', e.target.value)} placeholder="HK Home Dishes" />
-            </label>
-            <label className="checkbox-row">
-              <input type="checkbox" checked={draft.teamLunch} onChange={(e) => patch('teamLunch', e.target.checked)} />
-              <span>Team lunch mode</span>
-            </label>
-            <label className="checkbox-row">
-              <input type="checkbox" checked={draft.receiptNeeded} onChange={(e) => patch('receiptNeeded', e.target.checked)} />
-              <span>Receipt reminder</span>
-            </label>
-            <label className="checkbox-row">
-              <input type="checkbox" checked={draft.contactlessDropoff} onChange={(e) => patch('contactlessDropoff', e.target.checked)} />
-              <span>Contactless drop-off</span>
-            </label>
+        <div className="settings-section">
+          <h3>More for later</h3>
+          <div className="settings-grid">
+            <SoonCard title="Weekly meal plan" detail="Plan your workweek meals." />
+            <SoonCard title="Favourite kitchens" detail="Pin kitchens you order from often." />
+            <SoonCard title="Saved lunch routine" detail="Reuse your usual lunch setup." />
+            <SoonCard title="Receipt reminders" detail="Receive a work expense reminder after lunch." />
           </div>
-        </section>
+        </div>
+
+        <div className="settings-actions">
+          <button type="button" className="primary-btn" onClick={handleSave}>Save changes</button>
+          {saved && <span className="muted small-text">{saved}</span>}
+        </div>
       </section>
-
-      <aside className="settings-side-column">
-        <section className="card">
-          <p className="eyebrow">Links</p>
-          <div className="menu-list-web">
-            <Link className="menu-line-web menu-line-web--link" to="/profile"><div><strong>Back to profile</strong></div><span className="muted small-text">Profile</span></Link>
-            <Link className="menu-line-web menu-line-web--link" to="/orders"><div><strong>Orders</strong></div><span className="muted small-text">History</span></Link>
-            {user.role === 'admin' && <Link className="menu-line-web menu-line-web--link" to="/admin"><div><strong>Restaurant</strong></div><span className="muted small-text">Queue</span></Link>}
-          </div>
-        </section>
-
-        <section className="card">
-          <p className="eyebrow">Ready later</p>
-          <div className="menu-list-web">
-            <div className="menu-line-web"><div><strong>Change password</strong></div><span className="muted small-text">Stub API</span></div>
-            <div className="menu-line-web"><div><strong>MFA</strong></div><span className="muted small-text">Stub API</span></div>
-            <div className="menu-line-web"><div><strong>Contact us</strong></div><span className="muted small-text">Stub API</span></div>
-            <div className="menu-line-web"><div><strong>Saved addresses</strong></div><span className="muted small-text">UI ready</span></div>
-          </div>
-        </section>
-      </aside>
     </div>
   );
 }

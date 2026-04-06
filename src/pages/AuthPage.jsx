@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function AuthPage() {
@@ -22,7 +22,7 @@ export default function AuthPage() {
         await signIn(form);
       } else {
         await signUp(form);
-        setSuccess('Account created. If email confirmation is enabled, confirm it first, then log in.');
+        setSuccess('Account created. You can sign in now.');
         setMode('login');
       }
     } catch (submitError) {
@@ -36,20 +36,20 @@ export default function AuthPage() {
     <div className="page-shell shell auth-layout-web">
       <section className="card auth-promo">
         <p className="eyebrow">HK Home Dishes</p>
-        <h1>Sign in to place orders, collect coins, and track every update.</h1>
+        <h1>Order your meal, save your favourites, and track each order.</h1>
         <ul className="auth-promo__list">
-          <li>Guest browsing stays open.</li>
-          <li>Orders and loyalty coins stay with your account.</li>
-          <li>Restaurant dashboard is available for admin accounts.</li>
+          <li>Browse first, then sign in when you are ready.</li>
+          <li>Your orders and coins stay with your account.</li>
+          <li>Shops can use a separate merchant sign in.</li>
         </ul>
       </section>
 
       <section className="card auth-card auth-card--desktop">
         <p className="eyebrow">Account</p>
-        <h2>{mode === 'login' ? 'Login' : 'Create account'}</h2>
-        <p className="muted">Use the same account for orders, profile, and loyalty coins.</p>
+        <h2>{mode === 'login' ? 'Sign in' : 'Create account'}</h2>
+        <p className="muted">Use one account for orders, saved meals, and coins.</p>
 
-        {!hasSupabaseEnv && <div className="alert alert--warning">Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY in your env.</div>}
+        {!hasSupabaseEnv && <div className="alert alert--warning">Sign in is not ready on this device yet.</div>}
         {error && <div className="alert alert--error">{error}</div>}
         {authError && <div className="alert alert--error">{authError}</div>}
         {success && <div className="alert alert--success">{success}</div>}
@@ -69,12 +69,15 @@ export default function AuthPage() {
             Password
             <input type="password" value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} required />
           </label>
-          <button className="primary-btn" disabled={loading || !hasSupabaseEnv}>{loading ? 'Working...' : mode === 'login' ? 'Sign in' : 'Sign up'}</button>
+          <button className="primary-btn" disabled={loading || !hasSupabaseEnv}>{loading ? 'Please wait' : mode === 'login' ? 'Sign in' : 'Sign up'}</button>
         </form>
 
-        <button className="ghost-btn auth-toggle" onClick={() => setMode((current) => (current === 'login' ? 'signup' : 'login'))}>
-          {mode === 'login' ? 'Need an account? Sign up' : 'Already have an account? Login'}
-        </button>
+        <div className="auth-card__actions">
+          <button className="ghost-btn auth-toggle" onClick={() => setMode((current) => (current === 'login' ? 'signup' : 'login'))}>
+            {mode === 'login' ? 'Need an account? Sign up' : 'Already have an account? Sign in'}
+          </button>
+          <Link className="ghost-btn auth-toggle" to="/merchant-login">Merchant sign in</Link>
+        </div>
       </section>
     </div>
   );

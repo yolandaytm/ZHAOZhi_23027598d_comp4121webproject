@@ -1,3 +1,5 @@
+import { seasoningAddons, builderSchema, isBuilderItem } from './mealMeta.js';
+
 export function formatCurrency(cents) {
   return `HK$${(Number(cents || 0) / 100).toFixed(2)}`;
 }
@@ -6,10 +8,17 @@ function getOptionPrice(options, selectedCode) {
   return options?.find((option) => option.code === selectedCode)?.price || 0;
 }
 
+export function getEffectiveSchema(item) {
+  if (isBuilderItem(item)) return builderSchema;
+  return item?.customization_schema || item?.customizationSchema || {};
+}
+
 export function estimateLinePrice(item, customization) {
   if (!item) return 0;
 
-  const schema = item.customization_schema || item.customizationSchema || {};
+  const schema = getEffectiveSchema(item);
+  const optionQuantities = customization?.optionQuantities || {};
+  const addonQuantities = customization?.addonQuantities || {};
   let unitPrice = Number(item.base_price || item.basePrice || 0);
 
   for (const group of schema.singleChoice || []) {
@@ -20,8 +29,14 @@ export function estimateLinePrice(item, customization) {
   for (const group of schema.multiChoice || []) {
     const selected = customization?.multiChoice?.[group.key] || [];
     for (const code of selected) {
-      unitPrice += getOptionPrice(group.options, code);
+      const qty = Math.max(1, Number(optionQuantities[code] || 1));
+      unitPrice += getOptionPrice(group.options, code) * qty;
     }
+  }
+
+  for (const addon of seasoningAddons) {
+    const qty = Math.max(0, Number(addonQuantities[addon.code] || 0));
+    unitPrice += (addon.price || 0) * qty;
   }
 
   return unitPrice;

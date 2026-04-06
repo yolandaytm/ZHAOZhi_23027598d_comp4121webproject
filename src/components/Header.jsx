@@ -35,7 +35,10 @@ export default function Header({ cartCount, onOpenCart }) {
               <button className="ghost-btn" onClick={signOut}>Logout</button>
             </>
           ) : (
-            <Link className="primary-btn" to="/auth">Login</Link>
+            <>
+              <Link className="ghost-btn" to="/merchant-login">Merchant</Link>
+              <Link className="primary-btn" to="/auth">Login</Link>
+            </>
           )}
         </div>
       </div>

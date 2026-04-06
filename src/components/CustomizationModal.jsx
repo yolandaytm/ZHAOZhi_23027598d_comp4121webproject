@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { estimateLinePrice, formatCurrency } from '../lib/pricing.js';
-import { applyBuilderPreset, estimateCustomizationNutrition } from '../lib/mealMeta.js';
+import { estimateLinePrice, formatCurrency, getEffectiveSchema } from '../lib/pricing.js';
+import { applyBuilderPreset, builderSchema, estimateCustomizationNutrition, isBuilderItem, seasoningAddons } from '../lib/mealMeta.js';
 
 function getDefaultCustomization(item) {
-  const schema = item?.customization_schema || item?.customizationSchema || {};
+  const schema = getEffectiveSchema(item);
   const singleChoice = {};
   const multiChoice = {};
   for (const group of schema.singleChoice || []) {
@@ -12,7 +12,7 @@ function getDefaultCustomization(item) {
   for (const group of schema.multiChoice || []) {
     multiChoice[group.key] = [];
   }
-  return { singleChoice, multiChoice, notes: '' };
+  return { singleChoice, multiChoice, optionQuantities: {}, addonQuantities: {}, notes: '' };
 }
 
 function mergeCustomization(item, initialCustomization) {
@@ -21,6 +21,8 @@ function mergeCustomization(item, initialCustomization) {
   return {
     singleChoice: { ...base.singleChoice, ...(initialCustomization.singleChoice || {}) },
     multiChoice: { ...base.multiChoice, ...(initialCustomization.multiChoice || {}) },
+    optionQuantities: { ...(initialCustomization.optionQuantities || {}) },
+    addonQuantities: { ...(initialCustomization.addonQuantities || {}) },
     notes: initialCustomization.notes || '',
   };
 }
@@ -39,35 +41,59 @@ export default function CustomizationModal({ item, inventoryMap, onClose, onAdd,
   useEffect(() => {
     setCustomization(mergeCustomization(item, initialCustomization));
     setQuantity(1);
-    setPresetTitle(item?.name === 'Build Your Own Bowl' ? 'My custom bowl' : `${item?.name || 'Meal'} preset`);
+    setPresetTitle(isBuilderItem(item) ? 'My custom bowl' : `${item?.name || 'Meal'} preset`);
     setGoalTag('');
     setSharePreset(true);
     setPresetMessage('');
   }, [item, initialCustomization]);
 
-  const schema = item?.customization_schema || item?.customizationSchema || {};
+  const schema = useMemo(() => getEffectiveSchema(item), [item]);
   const estimatedUnit = useMemo(() => (item ? estimateLinePrice(item, customization) : 0), [item, customization]);
   const estimatedTotal = estimatedUnit * quantity;
   const liveNutrition = useMemo(
     () => (item ? estimateCustomizationNutrition(item, customization) : emptyNutrition),
     [item, customization]
   );
-  const totalNutrition = useMemo(() => ({
-    calories: liveNutrition.calories * quantity,
-    protein: liveNutrition.protein * quantity,
-    carbs: liveNutrition.carbs * quantity,
-    fat: liveNutrition.fat * quantity,
-  }), [liveNutrition, quantity]);
-  const isBuilder = item?.slug === 'build-your-own-bowl' || item?.id === 'build-your-own-bowl';
+  const isBuilder = isBuilderItem(item);
 
   if (!item) return null;
 
   function toggleMultiChoice(groupKey, code) {
     setCustomization((current) => {
       const selected = new Set(current.multiChoice[groupKey] || []);
-      if (selected.has(code)) selected.delete(code);
-      else selected.add(code);
-      return { ...current, multiChoice: { ...current.multiChoice, [groupKey]: [...selected] } };
+      const optionQuantities = { ...(current.optionQuantities || {}) };
+      if (selected.has(code)) {
+        selected.delete(code);
+        delete optionQuantities[code];
+      } else {
+        selected.add(code);
+        optionQuantities[code] = 1;
+      }
+      return {
+        ...current,
+        multiChoice: { ...current.multiChoice, [groupKey]: [...selected] },
+        optionQuantities,
+      };
+    });
+  }
+
+  function setOptionQuantity(code, nextQty) {
+    setCustomization((current) => ({
+      ...current,
+      optionQuantities: {
+        ...(current.optionQuantities || {}),
+        [code]: Math.max(1, Math.min(5, nextQty)),
+      },
+    }));
+  }
+
+  function setAddonQuantity(code, nextQty) {
+    setCustomization((current) => {
+      const addonQuantities = { ...(current.addonQuantities || {}) };
+      const normalized = Math.max(0, Math.min(5, nextQty));
+      if (!normalized) delete addonQuantities[code];
+      else addonQuantities[code] = normalized;
+      return { ...current, addonQuantities };
     });
   }
 
@@ -87,11 +113,13 @@ export default function CustomizationModal({ item, inventoryMap, onClose, onAdd,
       });
       setPresetMessage('Saved.');
     } catch (error) {
-      setPresetMessage(error.message || 'Could not save preset.');
+      setPresetMessage(error.message || 'Could not save.');
     } finally {
       setSavingPreset(false);
     }
   }
+
+  const nutritionLine = `${liveNutrition.calories} kcal · ${liveNutrition.protein}g protein · ${liveNutrition.carbs}g carbs · ${liveNutrition.fat}g fat`;
 
   return (
     <div className="overlay" onClick={onClose}>
@@ -109,20 +137,13 @@ export default function CustomizationModal({ item, inventoryMap, onClose, onAdd,
             <section className="option-group builder-quick-presets">
               <div className="compact-row compact-row--top">
                 <div>
-                  <h4>Quick presets</h4>
-                  <p className="muted small-text">Fast picks for common goals.</p>
+                  <h4>Quick picks</h4>
+                  <p className="muted small-text">Start with a ready-made mix.</p>
                 </div>
               </div>
               <div className="builder-quick-presets__row">
                 {['Office lunch', 'High protein', 'Lighter'].map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    className="ghost-btn"
-                    onClick={() => setCustomization((current) => applyBuilderPreset(preset, current))}
-                  >
-                    {preset}
-                  </button>
+                  <button key={preset} type="button" className="ghost-btn" onClick={() => setCustomization((current) => applyBuilderPreset(preset, current))}>{preset}</button>
                 ))}
               </div>
             </section>
@@ -132,7 +153,7 @@ export default function CustomizationModal({ item, inventoryMap, onClose, onAdd,
             <div className="compact-row compact-row--top">
               <div>
                 <h4>Nutrition</h4>
-                <p className="muted small-text">Per bowl. Total only appears when quantity is more than 1.</p>
+                <p className="muted small-text">Per bowl. Order total updates below.</p>
               </div>
             </div>
             <div className="nutrition-grid">
@@ -142,8 +163,8 @@ export default function CustomizationModal({ item, inventoryMap, onClose, onAdd,
               <div className="nutrition-tile"><strong>{liveNutrition.fat}g</strong><span>fat</span></div>
             </div>
             {quantity > 1 && (
-              <div className="nutrition-total-note muted small-text">
-                Total for {quantity} bowls: {totalNutrition.calories} kcal · {totalNutrition.protein}g protein · {totalNutrition.carbs}g carbs · {totalNutrition.fat}g fat
+              <div className="muted small-text nutrition-total-line">
+                Total for {quantity} bowls: {liveNutrition.calories * quantity} kcal · {liveNutrition.protein * quantity}g protein · {liveNutrition.carbs * quantity}g carbs · {liveNutrition.fat * quantity}g fat
               </div>
             )}
           </section>
@@ -179,12 +200,22 @@ export default function CustomizationModal({ item, inventoryMap, onClose, onAdd,
                 {group.options.map((option) => {
                   const disabled = inventoryMap[option.code] === false;
                   const checked = customization.multiChoice[group.key]?.includes(option.code);
+                  const selectedQty = customization.optionQuantities?.[option.code] || 1;
                   return (
-                    <label key={option.code} className={`option-tile ${disabled ? 'option-tile--disabled' : ''}`}>
-                      <input type="checkbox" checked={checked} onChange={() => toggleMultiChoice(group.key, option.code)} disabled={disabled} />
-                      <span>{option.label}</span>
-                      <strong>{option.price ? `+${formatCurrency(option.price)}` : 'Included'}</strong>
-                    </label>
+                    <div key={option.code} className={`option-tile option-tile--qty ${disabled ? 'option-tile--disabled' : ''}`}>
+                      <label className="option-tile__main">
+                        <input type="checkbox" checked={checked} onChange={() => toggleMultiChoice(group.key, option.code)} disabled={disabled} />
+                        <span>{option.label}</span>
+                        <strong>{option.price ? `+${formatCurrency(option.price)}` : 'Included'}</strong>
+                      </label>
+                      {checked && !disabled && (
+                        <div className="inline-stepper">
+                          <button type="button" onClick={() => setOptionQuantity(option.code, selectedQty - 1)}>-</button>
+                          <span>{selectedQty}</span>
+                          <button type="button" onClick={() => setOptionQuantity(option.code, selectedQty + 1)}>+</button>
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -192,8 +223,35 @@ export default function CustomizationModal({ item, inventoryMap, onClose, onAdd,
           ))}
 
           <section className="option-group">
+            <div className="compact-row compact-row--top">
+              <div>
+                <h4>Extra seasoning</h4>
+                <p className="muted small-text">Adjust small add-ons here.</p>
+              </div>
+            </div>
+            <div className="option-grid">
+              {seasoningAddons.map((addon) => {
+                const qty = customization.addonQuantities?.[addon.code] || 0;
+                return (
+                  <div key={addon.code} className="option-tile option-tile--qty">
+                    <div className="option-tile__main">
+                      <span>{addon.label}</span>
+                      <strong>{addon.price ? `+${formatCurrency(addon.price)}` : 'Included'}</strong>
+                    </div>
+                    <div className="inline-stepper">
+                      <button type="button" onClick={() => setAddonQuantity(addon.code, qty - 1)}>-</button>
+                      <span>{qty}</span>
+                      <button type="button" onClick={() => setAddonQuantity(addon.code, qty + 1)}>+</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="option-group">
             <h4>Meal note</h4>
-            <textarea className="textarea" rows="3" value={customization.notes} onChange={(event) => setCustomization((current) => ({ ...current, notes: event.target.value }))} placeholder="This note stays with this meal only." />
+            <textarea className="textarea" rows="3" value={customization.notes} onChange={(event) => setCustomization((current) => ({ ...current, notes: event.target.value }))} placeholder="For this meal only" />
           </section>
 
           {isBuilder && canSavePreset && (
@@ -201,7 +259,7 @@ export default function CustomizationModal({ item, inventoryMap, onClose, onAdd,
               <div className="compact-row compact-row--top">
                 <div>
                   <h4>Save meal</h4>
-                  <p className="muted small-text">Keep it for later or share it.</p>
+                  <p className="muted small-text">Keep it for next time.</p>
                 </div>
               </div>
               <div className="checkout-grid">
@@ -225,7 +283,7 @@ export default function CustomizationModal({ item, inventoryMap, onClose, onAdd,
                 <span>Show in community meals</span>
               </label>
               <div className="preset-save-box__actions">
-                <button type="button" className="ghost-btn" onClick={handleSavePreset} disabled={savingPreset}>{savingPreset ? 'Saving...' : 'Save preset'}</button>
+                <button type="button" className="ghost-btn" onClick={handleSavePreset} disabled={savingPreset}>{savingPreset ? 'Saving…' : 'Save meal'}</button>
                 {presetMessage && <span className="muted small-text">{presetMessage}</span>}
               </div>
             </section>
@@ -234,16 +292,16 @@ export default function CustomizationModal({ item, inventoryMap, onClose, onAdd,
           <section className="option-group compact-row">
             <div>
               <h4>Quantity</h4>
-              <p className="muted small-text">Set how many bowls you want.</p>
               <div className="qty-picker">
                 <button type="button" onClick={() => setQuantity((current) => Math.max(1, current - 1))}>-</button>
                 <span>{quantity}</span>
-                <button type="button" onClick={() => setQuantity((current) => current + 1)}>+</button>
+                <button type="button" onClick={() => setQuantity((current) => Math.min(12, current + 1))}>+</button>
               </div>
             </div>
             <div className="price-box">
               <span>Total</span>
               <strong>{formatCurrency(estimatedTotal)}</strong>
+              <small className="muted">{nutritionLine}</small>
             </div>
           </section>
         </div>

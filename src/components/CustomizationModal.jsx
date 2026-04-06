@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { estimateLinePrice, formatCurrency } from '../lib/pricing.js';
+import { applyBuilderPreset, estimateCustomizationNutrition } from '../lib/mealMeta.js';
 
 function getDefaultCustomization(item) {
   const schema = item?.customization_schema || item?.customizationSchema || {};
@@ -24,15 +25,9 @@ function mergeCustomization(item, initialCustomization) {
   };
 }
 
-export default function CustomizationModal({
-  item,
-  inventoryMap,
-  onClose,
-  onAdd,
-  initialCustomization,
-  onSavePreset,
-  canSavePreset,
-}) {
+const emptyNutrition = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+
+export default function CustomizationModal({ item, inventoryMap, onClose, onAdd, initialCustomization, onSavePreset, canSavePreset }) {
   const [customization, setCustomization] = useState(() => mergeCustomization(item, initialCustomization));
   const [quantity, setQuantity] = useState(1);
   const [presetTitle, setPresetTitle] = useState('');
@@ -53,6 +48,10 @@ export default function CustomizationModal({
   const schema = item?.customization_schema || item?.customizationSchema || {};
   const estimatedUnit = useMemo(() => (item ? estimateLinePrice(item, customization) : 0), [item, customization]);
   const estimatedTotal = estimatedUnit * quantity;
+  const liveNutrition = useMemo(
+    () => (item ? estimateCustomizationNutrition(item, customization) : emptyNutrition),
+    [item, customization]
+  );
   const isBuilder = item?.slug === 'build-your-own-bowl' || item?.id === 'build-your-own-bowl';
 
   if (!item) return null;
@@ -62,13 +61,7 @@ export default function CustomizationModal({
       const selected = new Set(current.multiChoice[groupKey] || []);
       if (selected.has(code)) selected.delete(code);
       else selected.add(code);
-      return {
-        ...current,
-        multiChoice: {
-          ...current.multiChoice,
-          [groupKey]: [...selected],
-        },
-      };
+      return { ...current, multiChoice: { ...current.multiChoice, [groupKey]: [...selected] } };
     });
   }
 
@@ -86,7 +79,7 @@ export default function CustomizationModal({
         estimatedPrice: estimatedUnit,
         isPublic: sharePreset,
       });
-      setPresetMessage('Saved. You can reuse this meal from profile or community presets.');
+      setPresetMessage('Saved.');
     } catch (error) {
       setPresetMessage(error.message || 'Could not save preset.');
     } finally {
@@ -106,6 +99,44 @@ export default function CustomizationModal({
         </div>
 
         <div className="modal__content">
+          {isBuilder && (
+            <section className="option-group builder-quick-presets">
+              <div className="compact-row compact-row--top">
+                <div>
+                  <h4>Quick presets</h4>
+                  <p className="muted small-text">Fast picks for common goals.</p>
+                </div>
+              </div>
+              <div className="builder-quick-presets__row">
+                {['Office lunch', 'High protein', 'Lighter'].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    className="ghost-btn"
+                    onClick={() => setCustomization((current) => applyBuilderPreset(preset, current))}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section className="option-group nutrition-box">
+            <div className="compact-row compact-row--top">
+              <div>
+                <h4>Nutrition</h4>
+                <p className="muted small-text">Updates as you change the meal.</p>
+              </div>
+            </div>
+            <div className="nutrition-grid">
+              <div className="nutrition-tile"><strong>{liveNutrition.calories}</strong><span>kcal</span></div>
+              <div className="nutrition-tile"><strong>{liveNutrition.protein}g</strong><span>protein</span></div>
+              <div className="nutrition-tile"><strong>{liveNutrition.carbs}g</strong><span>carbs</span></div>
+              <div className="nutrition-tile"><strong>{liveNutrition.fat}g</strong><span>fat</span></div>
+            </div>
+          </section>
+
           {(schema.singleChoice || []).map((group) => (
             <section key={group.key} className="option-group">
               <h4>{group.label}</h4>
@@ -118,12 +149,7 @@ export default function CustomizationModal({
                         type="radio"
                         name={group.key}
                         checked={customization.singleChoice[group.key] === option.code}
-                        onChange={() =>
-                          setCustomization((current) => ({
-                            ...current,
-                            singleChoice: { ...current.singleChoice, [group.key]: option.code },
-                          }))
-                        }
+                        onChange={() => setCustomization((current) => ({ ...current, singleChoice: { ...current.singleChoice, [group.key]: option.code } }))}
                         disabled={disabled}
                       />
                       <span>{option.label}</span>
@@ -144,12 +170,7 @@ export default function CustomizationModal({
                   const checked = customization.multiChoice[group.key]?.includes(option.code);
                   return (
                     <label key={option.code} className={`option-tile ${disabled ? 'option-tile--disabled' : ''}`}>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleMultiChoice(group.key, option.code)}
-                        disabled={disabled}
-                      />
+                      <input type="checkbox" checked={checked} onChange={() => toggleMultiChoice(group.key, option.code)} disabled={disabled} />
                       <span>{option.label}</span>
                       <strong>{option.price ? `+${formatCurrency(option.price)}` : 'Included'}</strong>
                     </label>
@@ -160,31 +181,25 @@ export default function CustomizationModal({
           ))}
 
           <section className="option-group">
-            <h4>Special notes</h4>
-            <textarea
-              className="textarea"
-              rows="3"
-              value={customization.notes}
-              onChange={(event) => setCustomization((current) => ({ ...current, notes: event.target.value }))}
-              placeholder="No onion, extra sauce, pack cutlery separately..."
-            />
+            <h4>Notes</h4>
+            <textarea className="textarea" rows="3" value={customization.notes} onChange={(event) => setCustomization((current) => ({ ...current, notes: event.target.value }))} placeholder="Less sauce, no onion..." />
           </section>
 
           {isBuilder && canSavePreset && (
             <section className="option-group preset-save-box">
               <div className="compact-row compact-row--top">
                 <div>
-                  <h4>Save this custom meal</h4>
-                  <p className="muted small-text">Useful for repeat orders and for showing custom meals on the homepage.</p>
+                  <h4>Save meal</h4>
+                  <p className="muted small-text">Keep it for later or share it.</p>
                 </div>
               </div>
               <div className="checkout-grid">
                 <label>
-                  <span>Preset name</span>
-                  <input value={presetTitle} onChange={(event) => setPresetTitle(event.target.value)} placeholder="My high-protein bowl" />
+                  <span>Name</span>
+                  <input value={presetTitle} onChange={(event) => setPresetTitle(event.target.value)} placeholder="My lunch bowl" />
                 </label>
                 <label>
-                  <span>Goal tag</span>
+                  <span>Tag</span>
                   <select value={goalTag} onChange={(event) => setGoalTag(event.target.value)}>
                     <option value="">No tag</option>
                     <option value="High protein">High protein</option>
@@ -196,12 +211,10 @@ export default function CustomizationModal({
               </div>
               <label className="checkbox-row">
                 <input type="checkbox" checked={sharePreset} onChange={(event) => setSharePreset(event.target.checked)} />
-                <span>Share this meal in community custom meals</span>
+                <span>Show in community meals</span>
               </label>
               <div className="preset-save-box__actions">
-                <button type="button" className="ghost-btn" onClick={handleSavePreset} disabled={savingPreset}>
-                  {savingPreset ? 'Saving...' : 'Save preset'}
-                </button>
+                <button type="button" className="ghost-btn" onClick={handleSavePreset} disabled={savingPreset}>{savingPreset ? 'Saving...' : 'Save preset'}</button>
                 {presetMessage && <span className="muted small-text">{presetMessage}</span>}
               </div>
             </section>
@@ -217,16 +230,14 @@ export default function CustomizationModal({
               </div>
             </div>
             <div className="price-box">
-              <span>Estimated total</span>
+              <span>Total</span>
               <strong>{formatCurrency(estimatedTotal)}</strong>
             </div>
           </section>
         </div>
 
         <div className="modal__footer">
-          <button type="button" className="primary-btn" onClick={() => onAdd(customization, quantity)}>
-            Add to cart
-          </button>
+          <button type="button" className="primary-btn" onClick={() => onAdd(customization, quantity)}>Add to cart</button>
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { apiRequest } from '../lib/api.js';
 
-const samplePrompt = 'I want a filling dinner for one person. Not too spicy, more protein, no mushroom, and keep the total under HK$90.';
+const samplePrompt = 'High protein lunch under HK$90. No mushroom.';
 
 export default function AiMealHelper({ open, onClose }) {
   const [input, setInput] = useState(samplePrompt);
@@ -22,7 +22,7 @@ export default function AiMealHelper({ open, onClose }) {
     event.preventDefault();
     const prompt = input.trim();
     if (!prompt) {
-      setError('Please enter your request first.');
+      setError('Enter a request first.');
       return;
     }
 
@@ -36,7 +36,7 @@ export default function AiMealHelper({ open, onClose }) {
       });
       setResult(data.result || null);
     } catch (requestError) {
-      setError(requestError.message || 'AI request failed');
+      setError(requestError.message || 'Request failed');
     } finally {
       setLoading(false);
     }
@@ -48,8 +48,7 @@ export default function AiMealHelper({ open, onClose }) {
         <div className="modal__header">
           <div>
             <p className="eyebrow">AI query</p>
-            <h2>Quick meal suggestion</h2>
-            <p className="muted">Describe what you want. The AI result is kept short so it does not take over the page.</p>
+            <h2>Quick suggestion</h2>
           </div>
           <button type="button" className="ghost-btn" onClick={onClose}>Close</button>
         </div>
@@ -62,7 +61,7 @@ export default function AiMealHelper({ open, onClose }) {
               maxLength="700"
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              placeholder="Tell us what you want to eat, your budget, and any dislikes."
+              placeholder="Goal, budget, dislikes..."
             />
             <div className="ai-query-form__footer">
               <div className="muted small-text">{input.length}/700</div>
@@ -77,8 +76,8 @@ export default function AiMealHelper({ open, onClose }) {
               <h3>{result.recommendedDish || 'Suggested dish'}</h3>
               <p><strong>Summary:</strong> {result.summary || 'No summary returned.'}</p>
               {result.reason && <p><strong>Why:</strong> {result.reason}</p>}
-              {result.kitchenNote && <p><strong>Kitchen note:</strong> {result.kitchenNote}</p>}
-              {result.budgetTip && <p><strong>Budget tip:</strong> {result.budgetTip}</p>}
+              {result.kitchenNote && <p><strong>Note:</strong> {result.kitchenNote}</p>}
+              {result.budgetTip && <p><strong>Budget:</strong> {result.budgetTip}</p>}
             </div>
           )}
         </div>

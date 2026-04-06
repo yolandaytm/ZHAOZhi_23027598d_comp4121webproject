@@ -11,12 +11,14 @@ export default function ProfilePage({ orders, savedPresets = [], onUsePreset }) 
   const totalSpent = (orders || [])
     .filter((o) => o.status === 'delivered')
     .reduce((sum, order) => sum + Number(order.total || 0), 0);
+  const lastOrder = (orders || [])[0];
+  const lastType = lastOrder?.order_type ? String(lastOrder.order_type).replace(/_/g, ' ') : 'No orders yet';
 
-  const accountItems = [
-    { icon: '🍱', label: 'Saved custom meals', value: `${savedPresets.length} presets` },
-    { icon: '🛎️', label: 'Order tracking', value: 'Active' },
-    { icon: '⭐', label: 'Loyalty', value: `${user.loyaltyCoins || 0} coins` },
-    { icon: '📋', label: 'Ordering flow', value: 'Simple checkout' },
+  const quickItems = [
+    { icon: '🍱', label: 'Saved meals', value: `${savedPresets.length}` },
+    { icon: '⭐', label: 'Coins', value: `${user.loyaltyCoins || 0}` },
+    { icon: '📦', label: 'Delivered', value: `${completedOrders}` },
+    { icon: '🕒', label: 'Last order type', value: lastType },
   ];
 
   return (
@@ -39,40 +41,40 @@ export default function ProfilePage({ orders, savedPresets = [], onUsePreset }) 
           <article className="card card--nested stat-card-web">
             <div className="stat-card-web__icon">📦</div>
             <strong>{completedOrders}</strong>
-            <span>Delivered orders</span>
+            <span>Delivered</span>
           </article>
           <article className="card card--nested stat-card-web">
             <div className="stat-card-web__icon">💰</div>
             <strong>{formatCurrency(totalSpent)}</strong>
-            <span>Total spent</span>
+            <span>Spent</span>
           </article>
         </div>
 
         <section className="card card--nested loyalty-box-web">
           <div className="section-heading section-heading--tight">
             <div>
-              <p className="eyebrow">Loyalty program</p>
-              <h2>Earn 1 coin per HK$1 spent</h2>
+              <p className="eyebrow">Loyalty</p>
+              <h2>Earn 1 coin per HK$1</h2>
             </div>
           </div>
-          <p className="muted">Redeem 100 coins for HK$1 off. Maximum redemption is 50% of the order total.</p>
+          <p className="muted">100 coins = HK$1 off.</p>
           <div className="loyalty-progress-web">
             <div className="loyalty-progress-web__bar">
               <div className="loyalty-progress-web__fill" style={{ width: `${Math.min(((user.loyaltyCoins || 0) % 500) / 5, 100)}%` }} />
             </div>
-            <div className="muted small-text">{500 - ((user.loyaltyCoins || 0) % 500)} coins to next reward</div>
+            <div className="muted small-text">{500 - ((user.loyaltyCoins || 0) % 500)} to next reward</div>
           </div>
         </section>
 
         <section className="card card--nested">
           <div className="section-heading section-heading--tight">
             <div>
-              <p className="eyebrow">Saved custom meals</p>
-              <h2>Quick ways to repeat personalized orders</h2>
+              <p className="eyebrow">Saved meals</p>
+              <h2>Use again</h2>
             </div>
           </div>
           {!savedPresets.length ? (
-            <div className="muted small-text">Save a Build Your Own Bowl preset first. It will appear here for faster repeat ordering.</div>
+            <div className="muted small-text">Save a custom bowl first.</div>
           ) : (
             <div className="saved-preset-list">
               {savedPresets.map((preset) => (
@@ -91,9 +93,9 @@ export default function ProfilePage({ orders, savedPresets = [], onUsePreset }) 
 
       <aside className="profile-side-column">
         <section className="card">
-          <p className="eyebrow">Account</p>
+          <p className="eyebrow">Quick view</p>
           <div className="menu-list-web">
-            {accountItems.map((item) => (
+            {quickItems.map((item) => (
               <div className="menu-line-web" key={item.label}>
                 <div><span>{item.icon}</span><strong>{item.label}</strong></div>
                 <span className="muted small-text">{item.value}</span>

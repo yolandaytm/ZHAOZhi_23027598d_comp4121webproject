@@ -255,3 +255,17 @@ img { max-width: 100%; }
 
 .nutrition-grid--totals { margin-top: 12px; }
 .order-web-card__note { margin-bottom: 12px; }
+
+
+.settings-layout-web { display: grid; grid-template-columns: minmax(0, 2fr) 340px; gap: 24px; align-items: start; }
+.settings-main-card, .settings-side-column { min-width: 0; }
+.settings-page-top { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; }
+.settings-page-actions { display:flex; gap:12px; align-items:center; }
+.settings-grid-two { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.settings-full-width { grid-column:1 / -1; }
+.settings-tile { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; padding:16px 18px; border:1px solid var(--line); border-radius:18px; background:#fffdf9; }
+.settings-tile--action { min-height: 92px; }
+.settings-section-heading p { max-width: 56ch; }
+.menu-line-web--link { text-decoration:none; color:inherit; }
+.menu-line-web--link:hover { background: #fff9f2; }
+@media (max-width: 980px) { .settings-layout-web { grid-template-columns:1fr; } .settings-grid-two { grid-template-columns:1fr; } .settings-page-top { flex-direction:column; } }

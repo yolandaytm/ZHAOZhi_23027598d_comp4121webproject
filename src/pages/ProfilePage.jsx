@@ -93,7 +93,7 @@ export default function ProfilePage({ orders, savedPresets = [], onUsePreset }) 
 
       <aside className="profile-side-column">
         <section className="card">
-          <p className="eyebrow">Quick view</p>
+          <p className="eyebrow">Account</p>
           <div className="menu-list-web">
             {quickItems.map((item) => (
               <div className="menu-line-web" key={item.label}>
@@ -101,11 +101,16 @@ export default function ProfilePage({ orders, savedPresets = [], onUsePreset }) 
                 <span className="muted small-text">{item.value}</span>
               </div>
             ))}
+            <Link className="menu-line-web menu-line-web--link" to="/settings"><div><span>⚙️</span><strong>Settings</strong></div><span className="muted small-text">Security · health · support</span></Link>
+            <div className="menu-line-web"><div><span>🔐</span><strong>Change password</strong></div><span className="muted small-text">Planned</span></div>
+            <div className="menu-line-web"><div><span>🛡️</span><strong>MFA</strong></div><span className="muted small-text">Planned</span></div>
+            <div className="menu-line-web"><div><span>💬</span><strong>Contact us</strong></div><span className="muted small-text">Planned</span></div>
           </div>
         </section>
 
         <section className="card quick-links-card">
           <Link className="ghost-btn quick-link-btn" to="/orders">View orders</Link>
+          <Link className="ghost-btn quick-link-btn" to="/settings">Open settings</Link>
           {user.role === 'admin' && <Link className="ghost-btn quick-link-btn" to="/admin">Restaurant dashboard</Link>}
           <button className="primary-btn quick-link-btn" onClick={signOut}>Sign out</button>
         </section>

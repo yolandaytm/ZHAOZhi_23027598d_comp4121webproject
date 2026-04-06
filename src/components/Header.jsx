@@ -20,6 +20,7 @@ export default function Header({ cartCount, onOpenCart }) {
           <NavLink to="/">Home</NavLink>
           <NavLink to="/orders">Orders</NavLink>
           <NavLink to="/profile">Profile</NavLink>
+          {user && <NavLink to="/settings">Settings</NavLink>}
           {user?.role === 'admin' && <NavLink to="/admin">Restaurant</NavLink>}
         </nav>
 

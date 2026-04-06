@@ -8,6 +8,7 @@ import AuthPage from './pages/AuthPage.jsx';
 import OrdersPage from './pages/OrdersPage.jsx';
 import AdminPage from './pages/AdminPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
+import SettingsPage from './pages/SettingsPage.jsx';
 import { apiRequest } from './lib/api.js';
 import { useAuth } from './context/AuthContext.jsx';
 import { estimateLinePrice } from './lib/pricing.js';
@@ -227,6 +228,7 @@ export default function App() {
             navigate('/');
             handleOpenCustomize(builderItem, preset.customization);
           }} />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route
             path="/admin"
             element={

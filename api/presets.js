@@ -1,6 +1,6 @@
-import { allowCors, readJsonBody, sendJson } from './_lib/http.js';
-import { getServiceClient } from './_lib/supabase.js';
-import { requireUser } from './_lib/auth.js';
+import { allowCors, readJsonBody, sendJson } from '../lib/server/http.js';
+import { getServiceClient } from '../lib/server/supabase.js';
+import { requireUser } from '../lib/server/auth.js';
 
 function isMissingTable(error) {
   const message = String(error?.message || '');

@@ -1,5 +1,5 @@
-import { allowCors, sendJson } from './_lib/http.js';
-import { requireUser } from './_lib/auth.js';
+import { allowCors, sendJson } from '../lib/server/http.js';
+import { requireUser } from '../lib/server/auth.js';
 
 export default async function handler(req, res) {
   if (allowCors(req, res)) return;

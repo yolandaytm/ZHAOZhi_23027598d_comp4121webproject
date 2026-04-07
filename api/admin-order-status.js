@@ -1,6 +1,6 @@
-import { allowCors, readJsonBody, sendJson } from './_lib/http.js';
-import { requireAdmin } from './_lib/auth.js';
-import { getServiceClient } from './_lib/supabase.js';
+import { allowCors, readJsonBody, sendJson } from '../lib/server/http.js';
+import { requireAdmin } from '../lib/server/auth.js';
+import { getServiceClient } from '../lib/server/supabase.js';
 
 const allowedStatuses = new Set(['received', 'cooking', 'ready', 'out_for_delivery', 'delivered', 'cancelled']);
 

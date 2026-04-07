@@ -1,6 +1,6 @@
-import { allowCors, sendJson } from './_lib/http.js';
-import { requireAdmin } from './_lib/auth.js';
-import { getServiceClient } from './_lib/supabase.js';
+import { allowCors, sendJson } from '../lib/server/http.js';
+import { requireAdmin } from '../lib/server/auth.js';
+import { getServiceClient } from '../lib/server/supabase.js';
 
 export default async function handler(req, res) {
   if (allowCors(req, res)) return;

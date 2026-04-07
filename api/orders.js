@@ -1,7 +1,7 @@
-import { allowCors, readJsonBody, sendJson } from './_lib/http.js';
-import { requireUser } from './_lib/auth.js';
-import { getServiceClient } from './_lib/supabase.js';
-import { calculateLine, computeCoins } from './_lib/pricing.js';
+import { allowCors, readJsonBody, sendJson } from '../lib/server/http.js';
+import { requireUser } from '../lib/server/auth.js';
+import { getServiceClient } from '../lib/server/supabase.js';
+import { calculateLine, computeCoins } from '../lib/server/pricing.js';
 
 function normalizeOrders(rows) {
   return (rows || []).map((order) => ({

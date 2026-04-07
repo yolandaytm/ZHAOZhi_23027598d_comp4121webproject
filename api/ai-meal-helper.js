@@ -1,6 +1,6 @@
-import './_lib/env.js';
-import { allowCors, readJsonBody, sendJson } from './_lib/http.js';
-import { getServiceClient } from './_lib/supabase.js';
+import '../lib/server/env.js';
+import { allowCors, readJsonBody, sendJson } from '../lib/server/http.js';
+import { getServiceClient } from '../lib/server/supabase.js';
 
 function cleanModelText(text) {
   return String(text || '').replace(/^```json\s*/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
